@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#f4f4f6">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="增肌追蹤器">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>增肌追蹤器 V5</title>
+<style>
+:root{--bg:#f4f4f6;--card:#fff;--text:#18181b;--muted:#71717a;--line:#e4e4e7;--soft:#f8f8fa;--accent:#202124;--ok:#166534;--warn:#9a3412}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
+main{max-width:900px;margin:auto;padding:22px 15px 80px}.hero{padding:8px 3px 18px}.hero h1{margin:0;font-size:29px}.hero p{margin:6px 0 0;color:var(--muted)}
+.card{background:var(--card);border-radius:19px;padding:17px;margin-bottom:12px;box-shadow:0 1px 5px #0000000a}h2{font-size:18px;margin:0 0 13px}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}.stat{background:var(--soft);border-radius:13px;padding:11px}.stat b{display:block;font-size:19px}.stat small,.hint{color:var(--muted);font-size:12px}
+.grid,.fields{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.full{grid-column:1/-1}
+label{display:block;color:var(--muted);font-size:12px;margin:0 0 5px}input,select,textarea,button{width:100%;border:1px solid var(--line);background:#fff;border-radius:12px;padding:11px;font:inherit}textarea{min-height:65px}
+button{border:0;background:var(--accent);color:#fff;font-weight:700;cursor:pointer}.secondary{background:#ececef;color:#222}.danger{background:#fff;color:#b42318;border:1px solid #f2c7c2}
+.reminder{padding:12px;border-radius:13px;background:var(--soft);line-height:1.7;font-size:14px}.due{font-weight:700}.ok{color:var(--ok)}
+.progress{height:9px;background:#ececef;border-radius:99px;overflow:hidden;margin-top:12px}.bar{height:100%;background:#202124}
+table{border-collapse:collapse;width:100%;font-size:12px}th,td{padding:8px 6px;border-bottom:1px solid #eee;text-align:left;white-space:nowrap}.scroll{overflow:auto}
+details{background:var(--soft);padding:10px 12px;border-radius:12px}summary{cursor:pointer;font-weight:650}.measure-help{line-height:1.65;color:#444;font-size:13px}
+.badge{display:inline-block;padding:4px 8px;background:#eee;border-radius:99px;font-size:11px;margin-left:5px}
+@media(max-width:650px){.grid,.fields{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style></head>
+<body><main>
+<div class="hero"><h1>增肌追蹤器</h1><p>以週平均、圍度與訓練表現追蹤 57 → 58 kg 的增肌期</p></div>
+
+<section class="card">
+<h2>今日任務 <span id="todayBadge" class="badge"></span></h2>
+<div id="reminders" class="reminder"></div>
+</section>
+
+<section class="card">
+<h2>進度</h2>
+<div class="stats">
+<div class="stat"><b id="avgWeight">—</b><small>近 7 日平均 kg</small></div>
+<div class="stat"><b id="latestWaist">—</b><small>最新腰圍 cm</small></div>
+<div class="stat"><b id="avgCalories">—</b><small>近 7 日 kcal</small></div>
+<div class="stat"><b id="avgProtein">—</b><small>近 7 日蛋白質 g</small></div>
+</div><div class="progress"><div id="bar" class="bar"></div></div><div id="progressText" class="hint" style="margin-top:7px"></div>
+</section>
+
+<div class="grid">
+<section class="card"><h2>每日紀錄</h2>
+<form id="dailyForm" class="fields">
+<div><label>日期</label><input id="date" type="date" required></div>
+<div><label>晨起體重 kg</label><input id="weight" type="number" step=".05" required></div>
+<div><label>熱量 kcal</label><input id="calories" type="number"></div>
+<div><label>蛋白質 g</label><input id="protein" type="number"></div>
+<div><label>碳水 g</label><input id="carbs" type="number"></div>
+<div><label>脂肪 g</label><input id="fat" type="number"></div>
+<div><label>步數</label><input id="steps" type="number"></div>
+<div><label>訓練</label><select id="training"><option>Rest</option><option>Push</option><option>Pull</option><option>Legs</option><option>Upper</option><option>Other</option></select></div>
+<div><label>睡眠 hr</label><input id="sleep" type="number" step=".1"></div>
+<div class="full"><label>備註</label><textarea id="note"></textarea></div>
+<div class="full"><button>儲存今日紀錄</button></div>
+</form></section>
+
+<section class="card" id="measureCard"><h2 id="measureTitle">建立增肌期 Baseline</h2>
+<p id="measureIntro" class="hint"></p>
+<form id="measureForm" class="fields">
+<div><label>日期</label><input id="mdate" type="date" required></div>
+<div class="measureField" data-key="waist"><label>腰圍 cm</label><input id="waist" type="number" step=".1"></div>
+<div class="measureField" data-key="chest"><label>胸圍 cm</label><input id="chest" type="number" step=".1"></div>
+<div class="measureField" data-key="leftArm"><label>左上臂 cm</label><input id="leftArm" type="number" step=".1"></div>
+<div class="measureField" data-key="rightArm"><label>右上臂 cm</label><input id="rightArm" type="number" step=".1"></div>
+<div class="measureField" data-key="hips"><label>臀圍 cm</label><input id="hips" type="number" step=".1"></div>
+<div class="measureField" data-key="leftThigh"><label>左大腿 cm</label><input id="leftThigh" type="number" step=".1"></div>
+<div class="measureField" data-key="rightThigh"><label>右大腿 cm</label><input id="rightThigh" type="number" step=".1"></div>
+<div class="full"><button>儲存圍度</button></div>
+</form>
+<details style="margin-top:12px"><summary>測量位置說明</summary><div class="measure-help">
+<b>腰圍：</b>肚臍水平，自然站立，正常吐氣結束，不縮小腹。<br>
+<b>胸圍：</b>水平繞過胸部最突出處，手自然垂下，不刻意挺胸。<br>
+<b>上臂：</b>肩峰至手肘尖的中點，手臂自然下垂、放鬆；左右分開。<br>
+<b>臀圍：</b>臀部最突出、最寬處水平繞一圈。<br>
+<b>大腿：</b>鼠蹊部至膝蓋上緣的中點，自然站立、不繃腿；左右分開。<br><br>
+皮尺貼著皮膚但不要勒出凹痕。每次盡量在晨起、如廁後、進食前測量。
+</div></details></section>
+</div>
+
+
+<section class="card">
+<h2>飲食原始紀錄</h2>
+<p class="hint">不知道 kcal / P / C / F 沒關係。先記「吃了什麼＋重量／份量」，之後再讓 AI 幫你估算。</p>
+<form id="mealForm" class="fields">
+<div><label>日期</label><input id="mealDate" type="date" required></div>
+<div><label>餐別</label><select id="mealType"><option>早餐</option><option>午餐</option><option>晚餐</option><option>點心</option><option>其他</option></select></div>
+<div class="full"><label>吃了什麼？</label><textarea id="mealText" placeholder="例：糙米 172 g、烤雞 184 g、毛豆一份、番茄"></textarea></div>
+<div class="full"><button>加入飲食紀錄</button></div>
+</form>
+<div id="todayMeals" class="reminder" style="margin-top:12px"></div>
+<div class="grid" style="margin-top:10px">
+<button id="copyAIPrompt" class="secondary">複製今天飲食給 AI</button>
+<button id="clearMeals" class="danger">清除今天飲食</button>
+</div>
+<details style="margin-top:12px"><summary>AI 回傳後怎麼記？</summary>
+<div class="measure-help">把網站產生的文字貼到 ChatGPT。AI 可依食物重量估算總熱量、蛋白質、碳水、脂肪；確認後，再把結果填入「每日紀錄」。有包裝營養標示時，以標示為優先。</div></details>
+</section>
+
+<section class="card"><h2>近期紀錄</h2><div class="scroll"><table><thead><tr><th>日期</th><th>體重</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th>步數</th><th>訓練</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+
+<section class="card"><h2>增肌期目標</h2>
+<div class="reminder" style="margin-bottom:12px">
+<b>目前起始設定</b><br>
+🎯 目標體重：58 kg<br>
+🔥 每日熱量：2150 kcal<br>
+🥩 蛋白質：110 g / day<br>
+🚶 最低步數：10,000 / day<br>
+<span class="hint">這些是「目標」，不是今天實際吃的數字。熱量先執行 2–3 週，再依 7 日平均體重調整。</span>
+</div>
+<div class="fields">
+<div><label>目標體重 kg</label><input id="goalWeight" type="number" step=".1" value="58"></div>
+<div><label>熱量起始目標 kcal</label><input id="goalCalories" type="number" value="2150"></div>
+<div><label>蛋白質目標 g</label><input id="goalProtein" type="number" value="110"></div>
+<div><label>最低步數</label><input id="goalSteps" type="number" value="10000"></div>
+</div><div class="grid" style="margin-top:10px"><button id="saveSettings">儲存設定</button><button id="exportBtn" class="secondary">匯出全部資料</button></div>
+<p class="hint">資料儲存在此瀏覽器的 localStorage。關閉再開通常仍會保留；換裝置、清除網站資料或某些檔案預覽環境可能遺失，請定期匯出備份。</p>
+</section>
+</main>
+<script>
+const $=id=>document.getElementById(id), TODAY=new Date().toLocaleDateString('en-CA');
+$('date').value=$('mdate').value=$('mealDate').value=TODAY;
+let daily=JSON.parse(localStorage.getItem('mg_daily_v3')||'[]');
+let meals=JSON.parse(localStorage.getItem('mg_meals_v4')||'[]');
+let measures=JSON.parse(localStorage.getItem('mg_measures_v3')||'[]');
+const DEFAULT_SETTINGS={goalWeight:58,goalCalories:2150,goalProtein:110,goalSteps:10000};
+let savedSettings={};
+try{savedSettings=JSON.parse(localStorage.getItem('mg_settings_v3')||'{}')||{}}catch(e){savedSettings={}}
+let settings={...DEFAULT_SETTINGS,...savedSettings};
+Object.keys(DEFAULT_SETTINGS).forEach(k=>{
+  if(settings[k]===null || settings[k]==='' || !Number.isFinite(Number(settings[k]))) settings[k]=DEFAULT_SETTINGS[k];
+  if($(k)) $(k).value=settings[k];
+});
+const keys=['waist','chest','leftArm','rightArm','hips','leftThigh','rightThigh'];
+const labels={waist:'腰圍',chest:'胸圍',leftArm:'左上臂',rightArm:'右上臂',hips:'臀圍',leftThigh:'左大腿',rightThigh:'右大腿'};
+const interval={waist:7,chest:14,leftArm:14,rightArm:14,hips:14,leftThigh:14,rightThigh:14};
+function N(id){return $(id).value===''?null:Number($(id).value)}
+function days(a,b){return Math.floor((new Date(b+'T00:00:00')-new Date(a+'T00:00:00'))/86400000)}
+function lastWith(k){return measures.filter(x=>x[k]!=null).slice(-1)[0]}
+function due(k){let x=lastWith(k);return !x||days(x.date,TODAY)>=interval[k]}
+function avg(arr,k){let a=arr.map(x=>x[k]).filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null}
+function persist(){localStorage.setItem('mg_daily_v3',JSON.stringify(daily));localStorage.setItem('mg_measures_v3',JSON.stringify(measures));render()}
+$('dailyForm').onsubmit=e=>{e.preventDefault();let x={date:$('date').value,weight:N('weight'),calories:N('calories'),protein:N('protein'),carbs:N('carbs'),fat:N('fat'),steps:N('steps'),training:$('training').value,sleep:N('sleep'),note:$('note').value};daily=daily.filter(v=>v.date!==x.date);daily.push(x);daily.sort((a,b)=>a.date.localeCompare(b.date));persist();e.target.reset();$('date').value=TODAY}
+$('measureForm').onsubmit=e=>{e.preventDefault();let x={date:$('mdate').value};keys.forEach(k=>x[k]=N(k));let old=measures.find(v=>v.date===x.date)||{};keys.forEach(k=>{if(x[k]==null&&old[k]!=null)x[k]=old[k]});measures=measures.filter(v=>v.date!==x.date);measures.push(x);measures.sort((a,b)=>a.date.localeCompare(b.date));persist();e.target.reset();$('mdate').value=TODAY}
+
+$('mealForm').onsubmit=e=>{
+ e.preventDefault();
+ let text=$('mealText').value.trim(); if(!text)return;
+ meals.push({date:$('mealDate').value,type:$('mealType').value,text});
+ localStorage.setItem('mg_meals_v4',JSON.stringify(meals));
+ $('mealText').value=''; render();
+};
+$('clearMeals').onclick=()=>{
+ if(confirm('確定清除今天的飲食原始紀錄？')){
+  meals=meals.filter(x=>x.date!==TODAY); localStorage.setItem('mg_meals_v4',JSON.stringify(meals)); render();
+ }
+};
+$('copyAIPrompt').onclick=async()=>{
+ let m=meals.filter(x=>x.date===TODAY);
+ if(!m.length){alert('今天還沒有飲食紀錄');return}
+ let txt=`請幫我估算以下今日飲食的總熱量與三大營養素。請逐項列出 kcal、蛋白質、碳水、脂肪；份量不確定的項目請給合理估算並標註不確定性。最後加總，並和我的每日目標比較：${settings.goalCalories} kcal、蛋白質 ${settings.goalProtein} g。今天飲食：\n`+m.map(x=>`${x.type}：${x.text}`).join('\n');
+ try{await navigator.clipboard.writeText(txt);alert('已複製！直接貼到 ChatGPT 即可。')}catch(e){prompt('請複製下面文字：',txt)}
+};
+
+$('saveSettings').onclick=()=>{
+ settings={
+  goalWeight:N('goalWeight')??DEFAULT_SETTINGS.goalWeight,
+  goalCalories:N('goalCalories')??DEFAULT_SETTINGS.goalCalories,
+  goalProtein:N('goalProtein')??DEFAULT_SETTINGS.goalProtein,
+  goalSteps:N('goalSteps')??DEFAULT_SETTINGS.goalSteps
+ };
+ Object.keys(settings).forEach(k=>{if($(k))$(k).value=settings[k]});
+ localStorage.setItem('mg_settings_v3',JSON.stringify(settings));render();alert('增肌期目標已儲存');
+}
+
+function render(){
+ $('todayBadge').textContent=TODAY;
+ let tm=meals.filter(x=>x.date===TODAY);
+ $('todayMeals').innerHTML=tm.length?'<b>今天已記：</b><br>'+tm.map(x=>`• ${x.type}：${x.text}`).join('<br>'):'今天尚未輸入食物。';
+
+ let first=measures.length===0, dueKeys=keys.filter(due), logged=daily.some(x=>x.date===TODAY);
+ let msgs=[logged?'✓ 今日每日紀錄已完成':'● 今天：晨起體重、飲食、步數、訓練'];
+ if(first) msgs.push('● 明早建立正式增肌期 Baseline：一次量完所有圍度');
+ else if(dueKeys.length) msgs.push('● 今天到期：'+dueKeys.map(k=>labels[k]).join('、'));
+ else {
+   let next=keys.map(k=>{let x=lastWith(k);return {k,remain:interval[k]-days(x.date,TODAY)}}).sort((a,b)=>a.remain-b.remain)[0];
+   msgs.push(`✓ 今天不用量圍度；下一項：${labels[next.k]}，約 ${next.remain} 天後`);
+ }
+ $('reminders').innerHTML=msgs.map((m,i)=>`<div class="${m.startsWith('✓')?'ok':'due'}">${m}</div>`).join('');
+
+ $('measureTitle').textContent=first?'建立增肌期 Baseline':'到期圍度紀錄';
+ $('measureIntro').textContent=first?'第一次請一次量完；之後系統只顯示到期項目。':'沒有到期的圍度會自動隱藏。';
+ document.querySelectorAll('.measureField').forEach(el=>{let k=el.dataset.key;el.style.display=(first||due(k))?'block':'none'});
+ $('measureCard').style.display=(first||dueKeys.length)?'block':'none';
+
+ let last7=daily.slice(-7), aw=avg(last7,'weight'), ac=avg(last7,'calories'), ap=avg(last7,'protein');
+ $('avgWeight').textContent=aw?aw.toFixed(2):'—';$('avgCalories').textContent=ac?Math.round(ac):'—';$('avgProtein').textContent=ap?Math.round(ap):'—';
+ let w=lastWith('waist');$('latestWaist').textContent=w?w.waist.toFixed(1):'—';
+ let baseline=daily.length?daily[0].weight:null, goal=Number(settings.goalWeight||58), pct=(aw&&baseline&&goal!==baseline)?Math.max(0,Math.min(100,(aw-baseline)/(goal-baseline)*100)):0;
+ $('bar').style.width=pct+'%';$('progressText').textContent=aw?`目前 7 日平均 ${aw.toFixed(2)} kg；目標 ${goal.toFixed(1)} kg`:'累積數據後顯示 7 日平均';
+ $('rows').innerHTML=daily.slice().reverse().slice(0,14).map(x=>`<tr><td>${x.date}</td><td>${x.weight??'—'}</td><td>${x.calories??'—'}</td><td>${x.protein??'—'}</td><td>${x.carbs??'—'}</td><td>${x.fat??'—'}</td><td>${x.steps??'—'}</td><td>${x.training}</td></tr>`).join('');
+}
+$('exportBtn').onclick=()=>{
+ let payload={exportedAt:new Date().toISOString(),settings,daily,measures,meals};
+ let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download='muscle_gain_tracker_backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)
+};
+render();
+</script>
+<script>
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
+</script></body></html>

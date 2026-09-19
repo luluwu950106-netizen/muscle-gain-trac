@@ -1,0 +1,20 @@
+{
+  "name": "增肌追蹤器",
+  "short_name": "增肌追蹤",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f4f4f6",
+  "theme_color": "#f4f4f6",
+  "icons": [
+    {
+      "src": "icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
