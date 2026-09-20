@@ -8,7 +8,7 @@
 <meta name="apple-mobile-web-app-title" content="增肌追蹤器">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-180.png">
-<title>增肌追蹤器 V5</title>
+<title>增肌追蹤器 V5.1</title>
 <style>
 :root{--bg:#f4f4f6;--card:#fff;--text:#18181b;--muted:#71717a;--line:#e4e4e7;--soft:#f8f8fa;--accent:#202124;--ok:#166534;--warn:#9a3412}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","Segoe UI",sans-serif}
@@ -56,7 +56,7 @@ details{background:var(--soft);padding:10px 12px;border-radius:12px}summary{curs
 <div><label>訓練</label><select id="training"><option>Rest</option><option>Push</option><option>Pull</option><option>Legs</option><option>Upper</option><option>Other</option></select></div>
 <div><label>睡眠 hr</label><input id="sleep" type="number" step=".1"></div>
 <div class="full"><label>備註</label><textarea id="note"></textarea></div>
-<div class="full"><button>儲存今日紀錄</button></div>
+<div class="full"><button id="dailySubmitBtn">儲存今日紀錄</button></div>
 </form></section>
 
 <section class="card" id="measureCard"><h2 id="measureTitle">建立增肌期 Baseline</h2>
@@ -101,7 +101,7 @@ details{background:var(--soft);padding:10px 12px;border-radius:12px}summary{curs
 <div class="measure-help">把網站產生的文字貼到 ChatGPT。AI 可依食物重量估算總熱量、蛋白質、碳水、脂肪；確認後，再把結果填入「每日紀錄」。有包裝營養標示時，以標示為優先。</div></details>
 </section>
 
-<section class="card"><h2>近期紀錄</h2><div class="scroll"><table><thead><tr><th>日期</th><th>體重</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th>步數</th><th>訓練</th></tr></thead><tbody id="rows"></tbody></table></div></section>
+<section class="card"><h2>近期紀錄</h2><p class="hint">點日期可查看完整紀錄與備註，再載入修改。</p><div class="scroll"><table><thead><tr><th>日期</th><th>體重</th><th>kcal</th><th>P</th><th>C</th><th>F</th><th>步數</th><th>訓練</th></tr></thead><tbody id="rows"></tbody></table></div><div id="recordDetail" class="reminder" style="display:none;margin-top:12px"></div></section>
 
 <section class="card"><h2>增肌期目標</h2>
 <div class="reminder" style="margin-bottom:12px">
@@ -117,7 +117,7 @@ details{background:var(--soft);padding:10px 12px;border-radius:12px}summary{curs
 <div><label>熱量起始目標 kcal</label><input id="goalCalories" type="number" value="2150"></div>
 <div><label>蛋白質目標 g</label><input id="goalProtein" type="number" value="110"></div>
 <div><label>最低步數</label><input id="goalSteps" type="number" value="10000"></div>
-</div><div class="grid" style="margin-top:10px"><button id="saveSettings">儲存設定</button><button id="exportBtn" class="secondary">匯出全部資料</button></div>
+</div><div class="grid" style="margin-top:10px"><button id="saveSettings">儲存設定</button><button id="exportBtn" class="secondary">匯出 JSON 備份</button><button id="exportCsvBtn" class="secondary">匯出每日紀錄 CSV</button><button id="exportMeasureCsvBtn" class="secondary">匯出圍度 CSV</button></div>
 <p class="hint">資料儲存在此瀏覽器的 localStorage。關閉再開通常仍會保留；換裝置、清除網站資料或某些檔案預覽環境可能遺失，請定期匯出備份。</p>
 </section>
 </main>
@@ -144,7 +144,22 @@ function lastWith(k){return measures.filter(x=>x[k]!=null).slice(-1)[0]}
 function due(k){let x=lastWith(k);return !x||days(x.date,TODAY)>=interval[k]}
 function avg(arr,k){let a=arr.map(x=>x[k]).filter(v=>v!=null);return a.length?a.reduce((s,v)=>s+v,0)/a.length:null}
 function persist(){localStorage.setItem('mg_daily_v3',JSON.stringify(daily));localStorage.setItem('mg_measures_v3',JSON.stringify(measures));render()}
-$('dailyForm').onsubmit=e=>{e.preventDefault();let x={date:$('date').value,weight:N('weight'),calories:N('calories'),protein:N('protein'),carbs:N('carbs'),fat:N('fat'),steps:N('steps'),training:$('training').value,sleep:N('sleep'),note:$('note').value};daily=daily.filter(v=>v.date!==x.date);daily.push(x);daily.sort((a,b)=>a.date.localeCompare(b.date));persist();e.target.reset();$('date').value=TODAY}
+function loadDaily(date){
+ let x=daily.find(v=>v.date===date); $('date').value=date;
+ ['weight','calories','protein','carbs','fat','steps','sleep'].forEach(k=>$(k).value=x?.[k]??'');
+ $('training').value=x?.training||'Rest'; $('note').value=x?.note||'';
+ $('dailySubmitBtn').textContent=x?'更新這天紀錄':'儲存今日紀錄';
+}
+$('date').onchange=()=>loadDaily($('date').value);
+$('dailyForm').onsubmit=e=>{
+ e.preventDefault(); let date=$('date').value, old=daily.find(v=>v.date===date)||{};
+ let x={...old,date};
+ ['weight','calories','protein','carbs','fat','steps','sleep'].forEach(k=>{let v=N(k);if(v!=null)x[k]=v;else if(!(k in old))x[k]=null});
+ x.training=$('training').value||old.training||'Rest';
+ let note=$('note').value; x.note=note!==''?note:(old.note||'');
+ daily=daily.filter(v=>v.date!==date);daily.push(x);daily.sort((a,b)=>a.date.localeCompare(b.date));
+ persist();loadDaily(date);alert('紀錄已儲存／更新');
+}
 $('measureForm').onsubmit=e=>{e.preventDefault();let x={date:$('mdate').value};keys.forEach(k=>x[k]=N(k));let old=measures.find(v=>v.date===x.date)||{};keys.forEach(k=>{if(x[k]==null&&old[k]!=null)x[k]=old[k]});measures=measures.filter(v=>v.date!==x.date);measures.push(x);measures.sort((a,b)=>a.date.localeCompare(b.date));persist();e.target.reset();$('mdate').value=TODAY}
 
 $('mealForm').onsubmit=e=>{
@@ -202,13 +217,26 @@ function render(){
  let w=lastWith('waist');$('latestWaist').textContent=w?w.waist.toFixed(1):'—';
  let baseline=daily.length?daily[0].weight:null, goal=Number(settings.goalWeight||58), pct=(aw&&baseline&&goal!==baseline)?Math.max(0,Math.min(100,(aw-baseline)/(goal-baseline)*100)):0;
  $('bar').style.width=pct+'%';$('progressText').textContent=aw?`目前 7 日平均 ${aw.toFixed(2)} kg；目標 ${goal.toFixed(1)} kg`:'累積數據後顯示 7 日平均';
- $('rows').innerHTML=daily.slice().reverse().slice(0,14).map(x=>`<tr><td>${x.date}</td><td>${x.weight??'—'}</td><td>${x.calories??'—'}</td><td>${x.protein??'—'}</td><td>${x.carbs??'—'}</td><td>${x.fat??'—'}</td><td>${x.steps??'—'}</td><td>${x.training}</td></tr>`).join('');
+ $('rows').innerHTML=daily.slice().reverse().slice(0,14).map(x=>`<tr data-date="${x.date}" style="cursor:pointer"><td>${x.date}</td><td>${x.weight??'—'}</td><td>${x.calories??'—'}</td><td>${x.protein??'—'}</td><td>${x.carbs??'—'}</td><td>${x.fat??'—'}</td><td>${x.steps??'—'}</td><td>${x.training||'—'}</td></tr>`).join('');
+ document.querySelectorAll('#rows tr').forEach(tr=>tr.onclick=()=>showRecordDetail(tr.dataset.date));
 }
+
+function safe(v){return String(v??'—').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function showRecordDetail(date){
+ let x=daily.find(v=>v.date===date);if(!x)return;let d=$('recordDetail');d.style.display='block';
+ d.innerHTML=`<b>${safe(date)} 完整紀錄</b><br>體重：${x.weight??'—'} kg｜熱量：${x.calories??'—'} kcal<br>蛋白質：${x.protein??'—'} g｜碳水：${x.carbs??'—'} g｜脂肪：${x.fat??'—'} g<br>步數：${x.steps??'—'}｜訓練：${safe(x.training)}｜睡眠：${x.sleep??'—'} hr<br><b>備註：</b><span style="white-space:pre-wrap">${safe(x.note)}</span><br><button type="button" style="margin-top:8px" onclick="loadDaily('${date}');document.getElementById('dailyForm').scrollIntoView({behavior:'smooth'})">編輯這天</button>`;
+}
+function cell(v){return '"'+String(v??'').replace(/"/g,'""')+'"'}
+function downloadCSV(name,headers,rows){let csv='\uFEFF'+headers.map(cell).join(',')+'\n'+rows.map(r=>r.map(cell).join(',')).join('\n');let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
+$('exportCsvBtn').onclick=()=>downloadCSV('muscle_gain_daily.csv',['日期','體重 kg','熱量 kcal','蛋白質 g','碳水 g','脂肪 g','步數','訓練','睡眠 hr','備註'],daily.map(x=>[x.date,x.weight,x.calories,x.protein,x.carbs,x.fat,x.steps,x.training,x.sleep,x.note]));
+$('exportMeasureCsvBtn').onclick=()=>downloadCSV('muscle_gain_measures.csv',['日期','腰圍 cm','胸圍 cm','左上臂 cm','右上臂 cm','臀圍 cm','左大腿 cm','右大腿 cm'],measures.map(x=>[x.date,x.waist,x.chest,x.leftArm,x.rightArm,x.hips,x.leftThigh,x.rightThigh]));
+
 $('exportBtn').onclick=()=>{
  let payload={exportedAt:new Date().toISOString(),settings,daily,measures,meals};
  let a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(payload,null,2)],{type:'application/json'}));a.download='muscle_gain_tracker_backup.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)
 };
 render();
+loadDaily(TODAY);
 </script>
 <script>
 if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
