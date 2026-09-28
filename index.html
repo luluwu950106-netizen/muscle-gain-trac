@@ -281,53 +281,137 @@ $('dailyForm').onsubmit=e=>{
    圍度紀錄
 ========================= */
 
-$('measureForm').onsubmit=e=>{
+let editingMeasureDate=null;
 
-  e.preventDefault();
+function loadMeasure(date){
+  let x=measures.find(v=>v.date===date);
+  if(!x){
+    alert('這一天沒有圍度紀錄');
+    return;
+  }
 
-  let x={
-    date:$('mdate').value
-  };
-
-  keys.forEach(
-    k=>x[k]=N(k)
-  );
-
-  let old=
-    measures.find(
-      v=>v.date===x.date
-    )||{};
+  editingMeasureDate=date;
+  $('mdate').value=date;
 
   keys.forEach(k=>{
-
-    if(
-      x[k]==null &&
-      old[k]!=null
-    ){
-      x[k]=old[k];
-    }
-
+    $(k).value=x[k]??'';
+    let field=$(k).closest('.measureField');
+    if(field) field.style.display='block';
   });
 
-  measures=
-    measures.filter(
-      v=>v.date!==x.date
-    );
+  $('measureCard').style.display='block';
 
+  let btn=$('measureForm').querySelector('button[type="submit"]');
+  if(btn) btn.textContent='更新這天圍度';
+
+  $('measureForm').scrollIntoView({behavior:'smooth'});
+}
+
+function cancelMeasureEdit(){
+  editingMeasureDate=null;
+  $('measureForm').reset();
+  $('mdate').value=TODAY;
+  let btn=$('measureForm').querySelector('button[type="submit"]');
+  if(btn) btn.textContent='儲存圍度紀錄';
+  render();
+}
+
+$('mdate').onchange=()=>{
+  let date=$('mdate').value;
+  let x=measures.find(v=>v.date===date);
+
+  if(x){
+    editingMeasureDate=date;
+    keys.forEach(k=>{
+      $(k).value=x[k]??'';
+      let field=$(k).closest('.measureField');
+      if(field) field.style.display='block';
+    });
+    $('measureCard').style.display='block';
+    let btn=$('measureForm').querySelector('button[type="submit"]');
+    if(btn) btn.textContent='更新這天圍度';
+  }else{
+    editingMeasureDate=null;
+    keys.forEach(k=>$(k).value='');
+    let btn=$('measureForm').querySelector('button[type="submit"]');
+    if(btn) btn.textContent='儲存圍度紀錄';
+    render();
+  }
+};
+
+$('measureForm').onsubmit=e=>{
+  e.preventDefault();
+
+  let date=$('mdate').value;
+  let old=measures.find(v=>v.date===date)||{};
+  let x={...old,date};
+
+  keys.forEach(k=>{
+    let v=N(k);
+    if(v!=null) x[k]=v;
+    else if(!(k in old)) x[k]=null;
+  });
+
+  measures=measures.filter(v=>v.date!==date);
   measures.push(x);
-
-  measures.sort(
-    (a,b)=>
-      a.date.localeCompare(b.date)
-  );
+  measures.sort((a,b)=>a.date.localeCompare(b.date));
 
   persist();
 
+  editingMeasureDate=null;
   e.target.reset();
-
   $('mdate').value=TODAY;
+  let btn=$('measureForm').querySelector('button[type="submit"]');
+  if(btn) btn.textContent='儲存圍度紀錄';
+
+  alert('圍度紀錄已儲存／更新');
 };
 
+function renderMeasureHistory(){
+  let host=$('measureHistory');
+  if(!host) return;
+
+  if(!measures.length){
+    host.innerHTML='<div style="opacity:.7">尚無圍度紀錄。</div>';
+    return;
+  }
+
+  host.innerHTML=`
+    <div style="overflow-x:auto">
+      <table style="width:100%;font-size:12px;border-collapse:collapse">
+        <thead><tr>
+          <th>日期</th><th>腰圍</th><th>胸圍</th><th>左臂</th><th>右臂</th><th>臀圍</th><th>左腿</th><th>右腿</th><th></th>
+        </tr></thead>
+        <tbody>
+          ${measures.slice().reverse().map(x=>`
+            <tr>
+              <td>${safe(x.date)}</td>
+              <td>${x.waist??'—'}</td><td>${x.chest??'—'}</td>
+              <td>${x.leftArm??'—'}</td><td>${x.rightArm??'—'}</td>
+              <td>${x.hips??'—'}</td><td>${x.leftThigh??'—'}</td><td>${x.rightThigh??'—'}</td>
+              <td><button type="button" style="width:auto;padding:3px 8px;font-size:11px" onclick="loadMeasure('${x.date}')">編輯</button></td>
+            </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+function ensureMeasureHistoryUI(){
+  if($('measureHistory')) return;
+  let card=$('measureCard');
+  if(!card) return;
+
+  let wrap=document.createElement('div');
+  wrap.style.marginTop='18px';
+  wrap.innerHTML=`
+    <hr style="opacity:.2;margin:16px 0">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+      <b>📏 圍度歷史紀錄</b>
+      <button type="button" class="secondary" style="width:auto;padding:6px 10px" onclick="cancelMeasureEdit()">取消編輯／回到今天</button>
+    </div>
+    <div id="measureHistory" style="margin-top:10px"></div>`;
+  card.appendChild(wrap);
+}
 
 /* =========================
    飲食紀錄
@@ -762,6 +846,7 @@ function render(){
 
       el.style.display=
         (
+          editingMeasureDate ||
           first ||
           due(k)
         )
@@ -771,13 +856,10 @@ function render(){
     });
 
 
-  $('measureCard').style.display=
-    (
-      first ||
-      dueKeys.length
-    )
-    ? 'block'
-    : 'none';
+  /* 圍度卡永遠保留，方便查看歷史與修改輸入錯誤 */
+  $('measureCard').style.display='block';
+  ensureMeasureHistoryUI();
+  renderMeasureHistory();
 
 
   /* 近 7 日平均 */
@@ -1224,6 +1306,110 @@ $('exportMeasureCsvBtn').onclick=
 
 
 /* =========================
+   Excel 匯出（.xlsx）
+   使用 SheetJS CDN；若離線，會提示改用 CSV/JSON。
+========================= */
+
+function ensureExcelButton(){
+  if($('exportExcelBtn')) return;
+
+  let anchor=$('exportCsvBtn') || $('exportBtn');
+  if(!anchor) return;
+
+  let btn=document.createElement('button');
+  btn.type='button';
+  btn.id='exportExcelBtn';
+  btn.className='secondary';
+  btn.style.marginTop='8px';
+  btn.textContent='匯出 Excel（.xlsx）';
+  btn.onclick=exportExcel;
+  anchor.insertAdjacentElement('afterend',btn);
+}
+
+function loadSheetJS(){
+  return new Promise((resolve,reject)=>{
+    if(window.XLSX){ resolve(); return; }
+
+    let script=document.createElement('script');
+    script.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+    script.onload=()=>resolve();
+    script.onerror=()=>reject(new Error('SheetJS 載入失敗'));
+    document.head.appendChild(script);
+  });
+}
+
+async function exportExcel(){
+  try{
+    await loadSheetJS();
+
+    const dailyRows=daily.map(x=>({
+      '日期':x.date,
+      '體重 kg':x.weight??'',
+      '熱量 kcal':x.calories??'',
+      '蛋白質 g':x.protein??'',
+      '碳水 g':x.carbs??'',
+      '脂肪 g':x.fat??'',
+      '步數':x.steps??'',
+      '訓練':x.training??'',
+      '睡眠 hr':x.sleep??'',
+      '備註':x.note??''
+    }));
+
+    const measureRows=measures.map(x=>({
+      '日期':x.date,
+      '腰圍 cm':x.waist??'',
+      '胸圍 cm':x.chest??'',
+      '左上臂 cm':x.leftArm??'',
+      '右上臂 cm':x.rightArm??'',
+      '臀圍 cm':x.hips??'',
+      '左大腿 cm':x.leftThigh??'',
+      '右大腿 cm':x.rightThigh??''
+    }));
+
+    const mealRows=meals.map(x=>({
+      '日期':x.date,
+      '餐別':x.type??'',
+      '飲食內容':x.text??''
+    }));
+
+    const dates=[...new Set([
+      ...daily.map(x=>x.date),
+      ...measures.map(x=>x.date),
+      ...meals.map(x=>x.date)
+    ])].sort();
+
+    const summaryRows=dates.map(date=>{
+      let d=daily.find(x=>x.date===date)||{};
+      let m=measures.find(x=>x.date===date)||{};
+      return {
+        '日期':date,
+        '體重 kg':d.weight??'',
+        '熱量 kcal':d.calories??'',
+        '蛋白質 g':d.protein??'',
+        '碳水 g':d.carbs??'',
+        '脂肪 g':d.fat??'',
+        '步數':d.steps??'',
+        '訓練':d.training??'',
+        '睡眠 hr':d.sleep??'',
+        '腰圍 cm':m.waist??'',
+        '胸圍 cm':m.chest??'',
+        '臀圍 cm':m.hips??''
+      };
+    });
+
+    const wb=XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(dailyRows),'Daily');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(measureRows),'Measurements');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(mealRows),'Meals');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(summaryRows),'Summary');
+
+    XLSX.writeFile(wb,'muscle_gain_tracker.xlsx');
+  }catch(e){
+    alert('Excel 匯出需要網路載入 Excel 元件。目前載入失敗；你的資料仍安全保存在 App 中，也可先使用 CSV 或 JSON 備份。');
+  }
+}
+
+/* =========================
    JSON 完整備份
 ========================= */
 
@@ -1296,6 +1482,8 @@ $('exportBtn').onclick=()=>{
 /* =========================
    初始化
 ========================= */
+
+ensureExcelButton();
 
 render();
 
